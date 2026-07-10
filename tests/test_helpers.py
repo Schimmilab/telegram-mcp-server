@@ -86,6 +86,7 @@ def test_format_message_text():
     out = server._format_message(msg)
     assert out == {
         "id": 5,
+        "chat_id": None,
         "date": "2026-06-01T12:00:00",
         "sender_id": 99,
         "text": "hallo",

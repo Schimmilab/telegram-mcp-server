@@ -86,6 +86,17 @@ def test_get_messages_passes_offset_and_search(monkeypatch):
     client.get_messages.assert_awaited_with("ENT", limit=10, offset_id=100, search="foto")
 
 
+def test_get_messages_includes_chat_id(monkeypatch):
+    client = MagicMock()
+    m = _msg(1, "hi")
+    m.chat_id = -100999
+    client.get_messages = AsyncMock(return_value=[m])
+    _patch_client(monkeypatch, client)
+    monkeypatch.setattr(server, "_resolve_entity", AsyncMock(return_value="ENT"))
+    out = asyncio.run(server.get_messages("@arcanara", limit=1))
+    assert out[0]["chat_id"] == -100999
+
+
 def test_search_messages_empty_query_raises(monkeypatch):
     import pytest
     with pytest.raises(server.TelegramMCPError):

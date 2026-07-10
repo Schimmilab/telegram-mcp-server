@@ -103,6 +103,7 @@ def _format_message(msg: Any) -> dict[str, Any]:
     date = getattr(msg, "date", None)
     return {
         "id": msg.id,
+        "chat_id": getattr(msg, "chat_id", None),
         "date": date.isoformat() if date is not None else None,
         "sender_id": getattr(msg, "sender_id", None),
         "text": getattr(msg, "message", "") or "",
@@ -270,7 +271,7 @@ async def get_messages(
         before_id: Only messages older than this message id (pagination).
         search: Optional full-text filter within the chat.
 
-    Returns message dicts (id, date, sender_id, text, has_media, media_type).
+    Returns message dicts (id, chat_id, date, sender_id, text, has_media, media_type).
     """
     limit = _validate_limit(limit)
     client = await _get_client()
@@ -313,6 +314,8 @@ async def search_messages(
         query: Non-empty search string.
         chat: Optional chat id/@username/title to scope the search.
         limit: Max results (default 30, capped at 200).
+
+    Returns message dicts (id, chat_id, date, sender_id, text, has_media, media_type).
     """
     if not query or not query.strip():
         raise TelegramMCPError("query must not be empty")
