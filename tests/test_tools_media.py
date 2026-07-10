@@ -67,3 +67,44 @@ def test_get_recent_media_filters_by_kind(monkeypatch, tmp_path):
     )
     assert [r["message_id"] for r in out] == [1]
     assert out[0]["kind"] == "photo"
+
+
+def test_download_media_skips_failed_download(monkeypatch, tmp_path):
+    client = MagicMock()
+    client.get_messages = AsyncMock(return_value=[_media_msg(1)])
+    client.download_media = AsyncMock(return_value=None)  # telethon can't download this type
+    _patch_client(monkeypatch, client)
+    monkeypatch.setattr(server, "_resolve_entity",
+                        AsyncMock(return_value=SimpleNamespace(title="X")))
+    out = asyncio.run(server.download_media("X", [1], dest_dir=str(tmp_path)))
+    assert out == []
+
+
+def test_get_recent_media_skips_failed_download(monkeypatch, tmp_path):
+    client = MagicMock()
+    client.get_messages = AsyncMock(return_value=[_media_msg(1, "photo")])
+    client.download_media = AsyncMock(return_value=None)
+    _patch_client(monkeypatch, client)
+    monkeypatch.setattr(server, "_resolve_entity",
+                        AsyncMock(return_value=SimpleNamespace(title="X")))
+    out = asyncio.run(server.get_recent_media("X", limit=5, dest_dir=str(tmp_path)))
+    assert out == []
+
+
+def test_get_recent_media_rejects_unknown_kind():
+    import pytest
+    with pytest.raises(server.TelegramMCPError):
+        asyncio.run(server.get_recent_media("X", kind="image"))
+
+
+def test_download_media_returns_absolute_path_for_relative_dest(monkeypatch, tmp_path):
+    import os
+    client = MagicMock()
+    client.get_messages = AsyncMock(return_value=[_media_msg(1)])
+    client.download_media = AsyncMock(side_effect=lambda m, file: file)
+    _patch_client(monkeypatch, client)
+    monkeypatch.setattr(server, "_resolve_entity",
+                        AsyncMock(return_value=SimpleNamespace(title="Arcanara")))
+    monkeypatch.chdir(tmp_path)
+    out = asyncio.run(server.download_media("Arcanara", [1], dest_dir="media"))
+    assert out and os.path.isabs(out[0]["path"])

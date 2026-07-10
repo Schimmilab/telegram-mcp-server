@@ -331,12 +331,31 @@ async def search_messages(
 
 # --- Media tools ---------------------------------------------------------------
 
+_MEDIA_KINDS = {"photo", "video", "document", "other"}
+
+
 def _entity_slug(entity: Any, chat: Any) -> str:
     """Best-effort slug for filenames from an entity's title/username."""
     title = getattr(entity, "title", None) or getattr(entity, "username", None)
     if not title:
         title = str(_parse_chat_ref(chat)[1])
     return _slugify_chat(title)
+
+
+async def _prepare_download(client: Any, chat: Any, dest_dir: Optional[str]) -> tuple[Any, str, Path]:
+    """Resolve the chat, derive a filename slug, and ensure an absolute target dir."""
+    entity = await _resolve_entity(client, chat)
+    slug = _entity_slug(entity, chat)
+    target = Path(dest_dir or _load_config()["download_dir"]).expanduser().resolve()
+    target.mkdir(parents=True, exist_ok=True)
+    return entity, slug, target
+
+
+async def _download_one(client: Any, msg: Any, slug: str, target: Path) -> Optional[str]:
+    """Download one message's media; returns the absolute path, or None if Telethon
+    could not download this media type (poll, geo, story, unsupported, ...)."""
+    fname = _build_media_filename(slug, msg.id, _telethon_original_name(msg))
+    return await client.download_media(msg, file=str(target / fname))
 
 
 @mcp.tool()
@@ -352,23 +371,22 @@ async def download_media(
         message_ids: Message ids whose media should be downloaded.
         dest_dir: Target directory (default TELEGRAM_DOWNLOAD_DIR).
 
-    Returns [{message_id, path}] for messages that had media; non-media
-    messages are skipped. Paths are absolute.
+    Returns [{message_id, path}] for messages whose media downloaded
+    successfully; non-media and undownloadable media are skipped. Paths are
+    absolute.
     """
     if not message_ids:
         raise TelegramMCPError("message_ids must not be empty")
     client = await _get_client()
-    entity = await _resolve_entity(client, chat)
-    slug = _entity_slug(entity, chat)
-    target = Path(dest_dir or _load_config()["download_dir"])
-    target.mkdir(parents=True, exist_ok=True)
+    entity, slug, target = await _prepare_download(client, chat, dest_dir)
     msgs = await client.get_messages(entity, ids=message_ids)
     results: list[dict[str, Any]] = []
     for m in msgs:
         if m is None or getattr(m, "media", None) is None:
             continue
-        fname = _build_media_filename(slug, m.id, _telethon_original_name(m))
-        path = await client.download_media(m, file=str(target / fname))
+        path = await _download_one(client, m, slug, target)
+        if path is None:
+            continue
         results.append({"message_id": m.id, "path": path})
     return results
 
@@ -388,15 +406,15 @@ async def get_recent_media(
         kind: Optional filter — 'photo' / 'video' / 'document' / 'other'.
         dest_dir: Target directory (default TELEGRAM_DOWNLOAD_DIR).
 
-    Returns [{message_id, kind, path}]. This is the fast path for pulling
-    images out of a group (e.g. the Arcanara Juni-Treffen photos).
+    Returns [{message_id, kind, path}] for successfully downloaded media. This
+    is the fast path for pulling images out of a group (e.g. the Arcanara
+    Juni-Treffen photos). Paths are absolute.
     """
+    if kind is not None and kind not in _MEDIA_KINDS:
+        raise TelegramMCPError(f"kind must be one of {sorted(_MEDIA_KINDS)} or None")
     limit = _validate_limit(limit)
     client = await _get_client()
-    entity = await _resolve_entity(client, chat)
-    slug = _entity_slug(entity, chat)
-    target = Path(dest_dir or _load_config()["download_dir"])
-    target.mkdir(parents=True, exist_ok=True)
+    entity, slug, target = await _prepare_download(client, chat, dest_dir)
     msgs = await client.get_messages(entity, limit=limit)
     results: list[dict[str, Any]] = []
     for m in msgs:
@@ -405,8 +423,9 @@ async def get_recent_media(
         mk = _media_kind(m)
         if kind and mk != kind:
             continue
-        fname = _build_media_filename(slug, m.id, _telethon_original_name(m))
-        path = await client.download_media(m, file=str(target / fname))
+        path = await _download_one(client, m, slug, target)
+        if path is None:
+            continue
         results.append({"message_id": m.id, "kind": mk, "path": path})
     return results
 
