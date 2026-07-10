@@ -17,6 +17,8 @@ from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 from telethon import TelegramClient
+from telethon.tl.functions.messages import SearchGlobalRequest
+from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("telegram-mcp")
@@ -251,6 +253,77 @@ async def list_chats(query: Optional[str] = None, limit: int = 50) -> list[dict[
             }
         )
     return out
+
+
+@mcp.tool()
+async def get_messages(
+    chat: Any,
+    limit: int = 30,
+    before_id: Optional[int] = None,
+    search: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Read recent messages from one chat.
+
+    Args:
+        chat: Chat id, @username, or exact/substring title.
+        limit: Max messages (default 30, capped at 200).
+        before_id: Only messages older than this message id (pagination).
+        search: Optional full-text filter within the chat.
+
+    Returns message dicts (id, date, sender_id, text, has_media, media_type).
+    """
+    limit = _validate_limit(limit)
+    client = await _get_client()
+    entity = await _resolve_entity(client, chat)
+    kwargs: dict[str, Any] = {"limit": limit}
+    if before_id is not None:
+        kwargs["offset_id"] = before_id
+    if search is not None:
+        kwargs["search"] = search
+    msgs = await client.get_messages(entity, **kwargs)
+    return [_format_message(m) for m in msgs if m is not None]
+
+
+async def _search_global(client: Any, query: str, limit: int) -> list[Any]:
+    """Search messages across all chats via SearchGlobalRequest."""
+    result = await client(
+        SearchGlobalRequest(
+            q=query,
+            filter=InputMessagesFilterEmpty(),
+            min_date=None,
+            max_date=None,
+            offset_rate=0,
+            offset_peer=InputPeerEmpty(),
+            offset_id=0,
+            limit=limit,
+        )
+    )
+    return list(result.messages)
+
+
+@mcp.tool()
+async def search_messages(
+    query: str,
+    chat: Optional[Any] = None,
+    limit: int = 30,
+) -> list[dict[str, Any]]:
+    """Search messages by text — globally or within one chat.
+
+    Args:
+        query: Non-empty search string.
+        chat: Optional chat id/@username/title to scope the search.
+        limit: Max results (default 30, capped at 200).
+    """
+    if not query or not query.strip():
+        raise TelegramMCPError("query must not be empty")
+    limit = _validate_limit(limit)
+    client = await _get_client()
+    if chat is not None:
+        entity = await _resolve_entity(client, chat)
+        msgs = await client.get_messages(entity, limit=limit, search=query)
+    else:
+        msgs = await _search_global(client, query, limit)
+    return [_format_message(m) for m in msgs if m is not None]
 
 
 def main() -> None:

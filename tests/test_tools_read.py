@@ -55,3 +55,63 @@ def test_list_chats_missing_unread_defaults_zero(monkeypatch):
     _patch_client(monkeypatch, client)
     out = asyncio.run(server.list_chats())
     assert out[0]["unread"] == 0
+
+
+def _msg(id, text="", photo=None):
+    return SimpleNamespace(
+        id=id, date=None, sender_id=None, message=text,
+        photo=photo, document=None, media=(photo or None),
+    )
+
+
+def test_get_messages_resolves_and_formats(monkeypatch):
+    client = MagicMock()
+    client.get_messages = AsyncMock(return_value=[_msg(1, "a"), _msg(2, "b", photo=object())])
+    _patch_client(monkeypatch, client)
+    monkeypatch.setattr(server, "_resolve_entity", AsyncMock(return_value="ENT"))
+
+    out = asyncio.run(server.get_messages("Arcanara Juni", limit=5))
+    assert [m["id"] for m in out] == [1, 2]
+    assert out[1]["has_media"] is True
+    client.get_messages.assert_awaited_with("ENT", limit=5)
+
+
+def test_get_messages_passes_offset_and_search(monkeypatch):
+    client = MagicMock()
+    client.get_messages = AsyncMock(return_value=[])
+    _patch_client(monkeypatch, client)
+    monkeypatch.setattr(server, "_resolve_entity", AsyncMock(return_value="ENT"))
+
+    asyncio.run(server.get_messages("@arcanara", limit=10, before_id=100, search="foto"))
+    client.get_messages.assert_awaited_with("ENT", limit=10, offset_id=100, search="foto")
+
+
+def test_search_messages_empty_query_raises(monkeypatch):
+    import pytest
+    with pytest.raises(server.TelegramMCPError):
+        asyncio.run(server.search_messages("   "))
+
+
+def test_search_messages_in_chat(monkeypatch):
+    client = MagicMock()
+    client.get_messages = AsyncMock(return_value=[_msg(3, "treffen")])
+    _patch_client(monkeypatch, client)
+    monkeypatch.setattr(server, "_resolve_entity", AsyncMock(return_value="ENT"))
+
+    out = asyncio.run(server.search_messages("treffen", chat="@arcanara", limit=5))
+    assert out[0]["id"] == 3
+    client.get_messages.assert_awaited_with("ENT", limit=5, search="treffen")
+
+
+def test_search_messages_global(monkeypatch):
+    # _search_global is mocked directly so this test checks search_messages'
+    # wiring without rebuilding the Telethon request (see note at plan end).
+    client = MagicMock()
+    _patch_client(monkeypatch, client)
+    monkeypatch.setattr(
+        server, "_search_global", AsyncMock(return_value=[_msg(4, "global hit")])
+    )
+
+    out = asyncio.run(server.search_messages("global", limit=5))
+    assert out[0]["id"] == 4
+    server._search_global.assert_awaited()
