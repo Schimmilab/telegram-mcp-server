@@ -430,6 +430,41 @@ async def get_recent_media(
     return results
 
 
+# --- Write tools -------------------------------------------------------------
+
+@mcp.tool()
+async def send_message(chat: Any, text: str) -> dict[str, Any]:
+    """Send a text message to a chat as the logged-in user.
+
+    Args:
+        chat: Chat id/@username/title.
+        text: Non-empty message text.
+    """
+    if not text or not text.strip():
+        raise TelegramMCPError("text must not be empty")
+    client = await _get_client()
+    entity = await _resolve_entity(client, chat)
+    sent = await client.send_message(entity, text)
+    return {"sent": True, "message_id": sent.id}
+
+
+@mcp.tool()
+async def send_file(chat: Any, file_path: str, caption: Optional[str] = None) -> dict[str, Any]:
+    """Send a local file (image/document) to a chat as the logged-in user.
+
+    Args:
+        chat: Chat id/@username/title.
+        file_path: Absolute path to an existing local file.
+        caption: Optional caption text.
+    """
+    if not Path(file_path).is_file():
+        raise TelegramMCPError(f"file not found: {file_path}")
+    client = await _get_client()
+    entity = await _resolve_entity(client, chat)
+    sent = await client.send_file(entity, file_path, caption=caption)
+    return {"sent": True, "message_id": sent.id}
+
+
 def main() -> None:
     """Entry point: run the MCP server over stdio."""
     mcp.run()
