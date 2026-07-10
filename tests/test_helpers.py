@@ -155,3 +155,34 @@ def test_dialog_type_channel():
 def test_dialog_type_user():
     d = SimpleNamespace(is_group=False, is_channel=False, is_user=True)
     assert server._dialog_type(d) == "user"
+
+
+def test_validate_limit_rejects_bool():
+    with pytest.raises(server.TelegramMCPError):
+        server._validate_limit(True)
+
+
+def test_parse_chat_ref_rejects_bool():
+    with pytest.raises(server.TelegramMCPError):
+        server._parse_chat_ref(True)
+
+
+def test_parse_chat_ref_malformed_numeric_raises():
+    with pytest.raises(server.TelegramMCPError):
+        server._parse_chat_ref("--123")
+
+
+def test_media_filename_rejects_ext_with_separator():
+    # ext containing a path separator must not leak into a subdirectory
+    assert server._build_media_filename("chat", 1, "a.b/c") == "chat_1"
+
+
+def test_dialog_type_supergroup_dual_flag():
+    # megagroups have is_group AND is_channel both True → must classify as 'group'
+    d = SimpleNamespace(is_group=True, is_channel=True, is_user=False)
+    assert server._dialog_type(d) == "group"
+
+
+def test_dialog_type_unknown():
+    d = SimpleNamespace(is_group=False, is_channel=False, is_user=False)
+    assert server._dialog_type(d) == "unknown"

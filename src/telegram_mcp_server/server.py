@@ -62,7 +62,7 @@ def _build_media_filename(chat_slug: str, message_id: int, original_name: Option
     base = f"{chat_slug}_{message_id}"
     if original_name:
         ext = original_name.rpartition(".")[2]
-        if ext and ext != original_name:
+        if ext and ext != original_name and re.fullmatch(r"[A-Za-z0-9]+", ext):
             return f"{base}.{ext.lower()}"
     return base
 
@@ -110,13 +110,19 @@ def _format_message(msg: Any) -> dict[str, Any]:
 
 def _parse_chat_ref(chat: Any) -> tuple[str, Any]:
     """Classify a chat reference as ('id', int) / ('username', str) / ('title', str)."""
+    if isinstance(chat, bool):
+        raise TelegramMCPError("chat must be an id, @username, or title — not a bool")
     if isinstance(chat, int):
         return ("id", chat)
     s = str(chat).strip()
     if not s:
         raise TelegramMCPError("chat must not be empty")
     if s.lstrip("-").isdigit():
-        return ("id", int(s))
+        # Looks like a numeric chat id. Accept a single optional leading '-';
+        # a malformed variant like "--123" is a bad id, not a title.
+        if re.fullmatch(r"-?\d+", s):
+            return ("id", int(s))
+        raise TelegramMCPError(f"malformed chat id: {s!r}")
     if s.startswith("@"):
         return ("username", s)
     return ("title", s)
