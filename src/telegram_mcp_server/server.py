@@ -151,7 +151,12 @@ _client: Optional["TelegramClient"] = None
 
 
 async def _get_client() -> "TelegramClient":
-    """Return a connected, authorized TelegramClient (lazy, cached)."""
+    """Return a connected, authorized TelegramClient (lazy, cached).
+
+    Assumes the serialized single-event-loop model of a stdio MCP server:
+    tool calls are handled one at a time, so the create-and-cache section is
+    intentionally unlocked. Authorization is only re-checked on (re)connect.
+    """
     global _client
     if _client is not None and _client.is_connected():
         return _client
@@ -160,9 +165,13 @@ async def _get_client() -> "TelegramClient":
         raise TelegramMCPError(
             "TELEGRAM_API_ID / TELEGRAM_API_HASH not set — see README setup."
         )
+    try:
+        api_id_int = int(cfg["api_id"])
+    except (TypeError, ValueError):
+        raise TelegramMCPError(f"TELEGRAM_API_ID must be numeric, got {cfg['api_id']!r}")
     session_path = Path(cfg["session"])
     session_path.parent.mkdir(parents=True, exist_ok=True)
-    client = TelegramClient(str(session_path), int(cfg["api_id"]), cfg["api_hash"])
+    client = TelegramClient(str(session_path), api_id_int, cfg["api_hash"])
     await client.connect()
     if not await client.is_user_authorized():
         await client.disconnect()
@@ -177,6 +186,9 @@ async def _resolve_entity(client: Any, chat: Any) -> Any:
     id/username go straight to get_entity. Titles are matched against the
     dialog list (exact case-insensitive first, then substring); ambiguous or
     missing titles raise a clear error instead of guessing.
+
+    Note: title resolution fetches the full dialog list (comparatively
+    expensive); pass a chat id or @username to skip it.
     """
     kind, val = _parse_chat_ref(chat)
     if kind in ("id", "username"):
