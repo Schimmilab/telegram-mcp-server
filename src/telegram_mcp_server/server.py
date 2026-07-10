@@ -174,7 +174,12 @@ async def _get_client() -> "TelegramClient":
         raise TelegramMCPError(f"TELEGRAM_API_ID must be numeric, got {cfg['api_id']!r}")
     session_path = Path(cfg["session"])
     session_path.parent.mkdir(parents=True, exist_ok=True)
-    client = TelegramClient(str(session_path), api_id_int, cfg["api_hash"])
+    client = TelegramClient(
+        str(session_path),
+        api_id_int,
+        cfg["api_hash"],
+        flood_sleep_threshold=0,  # surface FloodWaitError instead of silently sleeping
+    )
     await client.connect()
     if not await client.is_user_authorized():
         await client.disconnect()
@@ -232,14 +237,18 @@ async def list_chats(query: Optional[str] = None, limit: int = 50) -> list[dict[
 
     Args:
         query: Optional case-insensitive substring filter on the chat title.
-        limit: Max number of dialogs to fetch (default 50, capped at 500).
+            When set, ALL dialogs are scanned so a match beyond the most-recent
+            `limit` chats is still found (comparatively expensive, like title
+            resolution); `limit` then caps the number of matches returned.
+        limit: Max results (default 50, capped at 500). Without `query` this is
+            also how many dialogs are fetched.
 
     Returns objects with id, title, type ('group'/'channel'/'user'), unread.
     Use this to find a chat's id/title before calling other tools.
     """
     limit = _validate_limit(limit, maximum=500)
     client = await _get_client()
-    dialogs = await client.get_dialogs(limit=limit)
+    dialogs = await client.get_dialogs(limit=None if query else limit)
     out: list[dict[str, Any]] = []
     for d in dialogs:
         name = d.name or ""
@@ -253,6 +262,8 @@ async def list_chats(query: Optional[str] = None, limit: int = 50) -> list[dict[
                 "unread": getattr(d, "unread_count", 0),
             }
         )
+        if len(out) >= limit:
+            break
     return out
 
 

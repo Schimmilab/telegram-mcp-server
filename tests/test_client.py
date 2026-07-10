@@ -55,6 +55,7 @@ def test_get_client_success_and_caches(monkeypatch, tmp_path):
     c1 = asyncio.run(server._get_client())
     assert c1 is fake
     fake.connect.assert_awaited_once()
+    assert ctor.call_args.kwargs.get("flood_sleep_threshold") == 0
 
     # second call must hit the cache: no new construct, no reconnect
     c2 = asyncio.run(server._get_client())

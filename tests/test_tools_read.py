@@ -38,6 +38,29 @@ def test_list_chats_shapes_and_filters(monkeypatch):
     assert [c["id"] for c in out_filtered] == [10]
 
 
+def test_list_chats_scans_all_when_query(monkeypatch):
+    client = MagicMock()
+    client.get_dialogs = AsyncMock(return_value=[])
+    _patch_client(monkeypatch, client)
+    asyncio.run(server.list_chats(query="x", limit=10))
+    client.get_dialogs.assert_awaited_with(limit=None)
+    asyncio.run(server.list_chats(limit=10))
+    client.get_dialogs.assert_awaited_with(limit=10)
+
+
+def test_list_chats_caps_results_to_limit(monkeypatch):
+    dialogs = [
+        SimpleNamespace(id=i, name=f"chat{i}", is_group=True, is_channel=False,
+                        is_user=False, unread_count=0)
+        for i in range(5)
+    ]
+    client = MagicMock()
+    client.get_dialogs = AsyncMock(return_value=dialogs)
+    _patch_client(monkeypatch, client)
+    out = asyncio.run(server.list_chats(limit=3))
+    assert len(out) == 3
+
+
 def test_get_me_handles_missing_optional_fields(monkeypatch):
     client = MagicMock()
     client.get_me = AsyncMock(return_value=SimpleNamespace(id=1, first_name="Jürgen"))
