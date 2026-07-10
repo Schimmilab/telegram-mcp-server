@@ -329,6 +329,88 @@ async def search_messages(
     return [_format_message(m) for m in msgs if m is not None]
 
 
+# --- Media tools ---------------------------------------------------------------
+
+def _entity_slug(entity: Any, chat: Any) -> str:
+    """Best-effort slug for filenames from an entity's title/username."""
+    title = getattr(entity, "title", None) or getattr(entity, "username", None)
+    if not title:
+        title = str(_parse_chat_ref(chat)[1])
+    return _slugify_chat(title)
+
+
+@mcp.tool()
+async def download_media(
+    chat: Any,
+    message_ids: list[int],
+    dest_dir: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Download media from specific messages to disk.
+
+    Args:
+        chat: Chat id/@username/title.
+        message_ids: Message ids whose media should be downloaded.
+        dest_dir: Target directory (default TELEGRAM_DOWNLOAD_DIR).
+
+    Returns [{message_id, path}] for messages that had media; non-media
+    messages are skipped. Paths are absolute.
+    """
+    if not message_ids:
+        raise TelegramMCPError("message_ids must not be empty")
+    client = await _get_client()
+    entity = await _resolve_entity(client, chat)
+    slug = _entity_slug(entity, chat)
+    target = Path(dest_dir or _load_config()["download_dir"])
+    target.mkdir(parents=True, exist_ok=True)
+    msgs = await client.get_messages(entity, ids=message_ids)
+    results: list[dict[str, Any]] = []
+    for m in msgs:
+        if m is None or getattr(m, "media", None) is None:
+            continue
+        fname = _build_media_filename(slug, m.id, _telethon_original_name(m))
+        path = await client.download_media(m, file=str(target / fname))
+        results.append({"message_id": m.id, "path": path})
+    return results
+
+
+@mcp.tool()
+async def get_recent_media(
+    chat: Any,
+    limit: int = 20,
+    kind: Optional[str] = None,
+    dest_dir: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Download the most recent media items from a chat.
+
+    Args:
+        chat: Chat id/@username/title.
+        limit: How many recent messages to scan (default 20, capped at 200).
+        kind: Optional filter — 'photo' / 'video' / 'document' / 'other'.
+        dest_dir: Target directory (default TELEGRAM_DOWNLOAD_DIR).
+
+    Returns [{message_id, kind, path}]. This is the fast path for pulling
+    images out of a group (e.g. the Arcanara Juni-Treffen photos).
+    """
+    limit = _validate_limit(limit)
+    client = await _get_client()
+    entity = await _resolve_entity(client, chat)
+    slug = _entity_slug(entity, chat)
+    target = Path(dest_dir or _load_config()["download_dir"])
+    target.mkdir(parents=True, exist_ok=True)
+    msgs = await client.get_messages(entity, limit=limit)
+    results: list[dict[str, Any]] = []
+    for m in msgs:
+        if m is None or getattr(m, "media", None) is None:
+            continue
+        mk = _media_kind(m)
+        if kind and mk != kind:
+            continue
+        fname = _build_media_filename(slug, m.id, _telethon_original_name(m))
+        path = await client.download_media(m, file=str(target / fname))
+        results.append({"message_id": m.id, "kind": mk, "path": path})
+    return results
+
+
 def main() -> None:
     """Entry point: run the MCP server over stdio."""
     mcp.run()
