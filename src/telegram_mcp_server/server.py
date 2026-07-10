@@ -436,9 +436,14 @@ async def get_recent_media(
 async def send_message(chat: Any, text: str) -> dict[str, Any]:
     """Send a text message to a chat as the logged-in user.
 
+    This is a real, irreversible send, visible to the chat's members, and
+    cannot be recalled via this API — confirm the chat and text before calling.
+
     Args:
         chat: Chat id/@username/title.
         text: Non-empty message text.
+
+    Returns {"sent": True, "message_id": <id>}.
     """
     if not text or not text.strip():
         raise TelegramMCPError("text must not be empty")
@@ -452,10 +457,15 @@ async def send_message(chat: Any, text: str) -> dict[str, Any]:
 async def send_file(chat: Any, file_path: str, caption: Optional[str] = None) -> dict[str, Any]:
     """Send a local file (image/document) to a chat as the logged-in user.
 
+    This is a real, irreversible send, visible to the chat's members, and
+    cannot be recalled via this API — confirm the chat and file before calling.
+
     Args:
         chat: Chat id/@username/title.
         file_path: Absolute path to an existing local file.
         caption: Optional caption text.
+
+    Returns {"sent": True, "message_id": <id>}.
     """
     if not Path(file_path).is_file():
         raise TelegramMCPError(f"file not found: {file_path}")

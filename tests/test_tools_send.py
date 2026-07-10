@@ -23,6 +23,9 @@ def test_send_message(monkeypatch):
 
 
 def test_send_message_empty_text_raises(monkeypatch):
+    # mock the client so the guard is what raises — not a fall-through to _get_client
+    _patch_client(monkeypatch, MagicMock())
+    monkeypatch.setattr(server, "_resolve_entity", AsyncMock(return_value="ENT"))
     with pytest.raises(server.TelegramMCPError):
         asyncio.run(server.send_message("@arcanara", "   "))
 
