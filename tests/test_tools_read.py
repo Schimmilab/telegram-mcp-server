@@ -36,3 +36,22 @@ def test_list_chats_shapes_and_filters(monkeypatch):
 
     out_filtered = asyncio.run(server.list_chats(query="arca"))
     assert [c["id"] for c in out_filtered] == [10]
+
+
+def test_get_me_handles_missing_optional_fields(monkeypatch):
+    client = MagicMock()
+    client.get_me = AsyncMock(return_value=SimpleNamespace(id=1, first_name="Jürgen"))
+    _patch_client(monkeypatch, client)
+    out = asyncio.run(server.get_me())
+    assert out == {"id": 1, "username": None, "first_name": "Jürgen", "phone": None}
+
+
+def test_list_chats_missing_unread_defaults_zero(monkeypatch):
+    dialogs = [
+        SimpleNamespace(id=10, name="X", is_group=True, is_channel=False, is_user=False)
+    ]
+    client = MagicMock()
+    client.get_dialogs = AsyncMock(return_value=dialogs)
+    _patch_client(monkeypatch, client)
+    out = asyncio.run(server.list_chats())
+    assert out[0]["unread"] == 0
