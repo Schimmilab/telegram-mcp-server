@@ -13,7 +13,12 @@ lokal halten, `chmod 600`, nie committen.
 ## Setup
 
 1. API-Credentials auf https://my.telegram.org (API development tools) erzeugen.
-2. Environment setzen:
+2. Repo installieren (venv + editierbar; Python ≥3.10):
+   ```bash
+   python3 -m venv .venv
+   .venv/bin/pip install -e .
+   ```
+3. Environment setzen:
    ```bash
    export TELEGRAM_API_ID=...
    export TELEGRAM_API_HASH=...
@@ -22,7 +27,7 @@ lokal halten, `chmod 600`, nie committen.
    export TELEGRAM_SESSION="$HOME/.telegram-mcp/schimmi.session"
    export TELEGRAM_DOWNLOAD_DIR="$HOME/Downloads/telegram-mcp"
    ```
-3. Einmalig einloggen (erzeugt die Session-Datei, fragt Code + ggf. 2FA):
+4. Einmalig einloggen (erzeugt die Session-Datei, fragt Code + ggf. 2FA):
    ```bash
    .venv/bin/python -m telegram_mcp_server.login
    ```
@@ -30,10 +35,16 @@ lokal halten, `chmod 600`, nie committen.
 ## In Claude Code registrieren
 
 ```bash
-claude mcp add telegram -- /ABSOLUTER/PFAD/telegram-mcp-server/.venv/bin/telegram-mcp-server
+claude mcp add telegram \
+  -e TELEGRAM_API_ID=... \
+  -e TELEGRAM_API_HASH=... \
+  -e TELEGRAM_SESSION="$HOME/.telegram-mcp/schimmi.session" \
+  -- /ABSOLUTER/PFAD/telegram-mcp-server/.venv/bin/telegram-mcp-server
 ```
-(Die Env-Variablen müssen im Kontext des Servers verfügbar sein — z.B. über die
-MCP-Konfiguration `env`-Sektion oder eine geladene `.env`.)
+Die `-e`-Flags sind nötig, weil ein von Claude Code gestarteter MCP-Server die
+Shell-`export`s aus dem Setup NICHT erbt. Alternativ die `env`-Sektion in der
+MCP-Konfiguration nutzen. `TELEGRAM_DOWNLOAD_DIR` optional per weiterem `-e` setzen.
+Nach dem Registrieren eine neue Claude-Code-Session starten, damit der Server erscheint.
 
 ## Tools
 
