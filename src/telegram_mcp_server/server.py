@@ -205,6 +205,54 @@ async def _resolve_entity(client: Any, chat: Any) -> Any:
     return matches[0].entity
 
 
+# --- Read tools --------------------------------------------------------------
+
+@mcp.tool()
+async def get_me() -> dict[str, Any]:
+    """Return the logged-in Telegram account (id, username, first_name, phone).
+
+    Doubles as a session check — errors if no valid session exists.
+    """
+    client = await _get_client()
+    me = await client.get_me()
+    return {
+        "id": me.id,
+        "username": getattr(me, "username", None),
+        "first_name": getattr(me, "first_name", None),
+        "phone": getattr(me, "phone", None),
+    }
+
+
+@mcp.tool()
+async def list_chats(query: Optional[str] = None, limit: int = 50) -> list[dict[str, Any]]:
+    """List chats (groups, channels, direct messages).
+
+    Args:
+        query: Optional case-insensitive substring filter on the chat title.
+        limit: Max number of dialogs to fetch (default 50, capped at 500).
+
+    Returns objects with id, title, type ('group'/'channel'/'user'), unread.
+    Use this to find a chat's id/title before calling other tools.
+    """
+    limit = _validate_limit(limit, maximum=500)
+    client = await _get_client()
+    dialogs = await client.get_dialogs(limit=limit)
+    out: list[dict[str, Any]] = []
+    for d in dialogs:
+        name = d.name or ""
+        if query and query.lower() not in name.lower():
+            continue
+        out.append(
+            {
+                "id": d.id,
+                "title": name,
+                "type": _dialog_type(d),
+                "unread": getattr(d, "unread_count", 0),
+            }
+        )
+    return out
+
+
 def main() -> None:
     """Entry point: run the MCP server over stdio."""
     mcp.run()
