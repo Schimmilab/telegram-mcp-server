@@ -1,0 +1,28 @@
+[project]
+name = "telegram-mcp-server"
+version = "0.1.0"
+description = "MCP server for Telegram (MTProto/Telethon) — read chats, messages and media, send messages, via a user account"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Juergen Schilling", email = "juergen_schilling@web.de"}
+]
+dependencies = [
+    "mcp>=1.0.0",
+    "telethon>=1.36.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[project.scripts]
+telegram-mcp-server = "telegram_mcp_server.server:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["telegram_mcp_server"]
+package-dir = {"" = "src"}
