@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
+from telethon import TelegramClient
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("telegram-mcp")
@@ -144,6 +145,52 @@ def _dialog_type(dialog: Any) -> str:
     if getattr(dialog, "is_user", False):
         return "user"
     return "unknown"
+
+
+_client: Optional["TelegramClient"] = None
+
+
+async def _get_client() -> "TelegramClient":
+    """Return a connected, authorized TelegramClient (lazy, cached)."""
+    global _client
+    if _client is not None and _client.is_connected():
+        return _client
+    cfg = _load_config()
+    if not cfg["api_id"] or not cfg["api_hash"]:
+        raise TelegramMCPError(
+            "TELEGRAM_API_ID / TELEGRAM_API_HASH not set — see README setup."
+        )
+    session_path = Path(cfg["session"])
+    session_path.parent.mkdir(parents=True, exist_ok=True)
+    client = TelegramClient(str(session_path), int(cfg["api_id"]), cfg["api_hash"])
+    await client.connect()
+    if not await client.is_user_authorized():
+        await client.disconnect()
+        raise TelegramMCPError("No valid session — run login.py first.")
+    _client = client
+    return _client
+
+
+async def _resolve_entity(client: Any, chat: Any) -> Any:
+    """Resolve a chat reference to a Telethon entity.
+
+    id/username go straight to get_entity. Titles are matched against the
+    dialog list (exact case-insensitive first, then substring); ambiguous or
+    missing titles raise a clear error instead of guessing.
+    """
+    kind, val = _parse_chat_ref(chat)
+    if kind in ("id", "username"):
+        return await client.get_entity(val)
+    dialogs = await client.get_dialogs()
+    val_l = val.lower()
+    exact = [d for d in dialogs if (d.name or "").lower() == val_l]
+    matches = exact or [d for d in dialogs if val_l in (d.name or "").lower()]
+    if not matches:
+        raise TelegramMCPError(f"No chat matching title '{val}'.")
+    if len(matches) > 1:
+        names = ", ".join(sorted({d.name or "" for d in matches}))
+        raise TelegramMCPError(f"Ambiguous chat title '{val}' — matches: {names}")
+    return matches[0].entity
 
 
 def main() -> None:
