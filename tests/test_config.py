@@ -20,7 +20,7 @@ def test_load_config_defaults(monkeypatch):
     monkeypatch.delenv("TELEGRAM_SESSION", raising=False)
     monkeypatch.delenv("TELEGRAM_DOWNLOAD_DIR", raising=False)
     cfg = server._load_config()
-    assert cfg["session"] == str(Path.home() / ".telegram-mcp" / "schimmi.session")
+    assert cfg["session"] == str(Path.home() / ".telegram-mcp" / "telegram.session")
     assert cfg["download_dir"] == str(Path.home() / "Downloads" / "telegram-mcp")
     assert cfg["api_id"] is None
 

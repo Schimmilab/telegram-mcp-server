@@ -24,7 +24,7 @@ lokal halten, `chmod 600`, nie committen.
    export TELEGRAM_API_HASH=...
    export TELEGRAM_PHONE=+49...        # nur für den Login nötig
    # optional:
-   export TELEGRAM_SESSION="$HOME/.telegram-mcp/schimmi.session"
+   export TELEGRAM_SESSION="$HOME/.telegram-mcp/telegram.session"
    export TELEGRAM_DOWNLOAD_DIR="$HOME/Downloads/telegram-mcp"
    ```
 4. Einmalig einloggen (erzeugt die Session-Datei, fragt Code + ggf. 2FA):
@@ -38,7 +38,7 @@ lokal halten, `chmod 600`, nie committen.
 claude mcp add telegram \
   -e TELEGRAM_API_ID=... \
   -e TELEGRAM_API_HASH=... \
-  -e TELEGRAM_SESSION="$HOME/.telegram-mcp/schimmi.session" \
+  -e TELEGRAM_SESSION="$HOME/.telegram-mcp/telegram.session" \
   -- /ABSOLUTER/PFAD/telegram-mcp-server/.venv/bin/telegram-mcp-server
 ```
 Die `-e`-Flags sind nötig, weil ein von Claude Code gestarteter MCP-Server die
@@ -81,12 +81,12 @@ Tests laufen ohne Live-Account (Client wird gemockt).
 # 2) get_me / list_chats / get_messages / download_media manuell über den
 #    MCP-Client (Claude Code) prüfen:
 #    - get_me                         -> zeigt deinen Account
-#    - list_chats query="arcanara"    -> findet die Juni-Treffen-Gruppe
+#    - list_chats query="<gruppe>"    -> findet eine deiner Gruppen
 #    - get_messages chat=<id> limit=5 -> liefert Nachrichten
 #    - search_messages query="..."    -> globale Suche (übt _search_global live aus;
 #                                         Treffer müssen chat_id tragen)
 #    - get_recent_media chat=<id> kind="photo" -> lädt Fotos nach $TELEGRAM_DOWNLOAD_DIR
 ```
-Erster echter Integrationstest = der Juni-Treffen-Medienabruf. Die globale `search_messages`
+Erster echter Integrationstest = ein Medienabruf aus einer deiner Gruppen. Die globale `search_messages`
 (ohne `chat`) ist der einzige Pfad, der `_search_global`/`SearchGlobalRequest` real ausführt —
 im Smoke-Test nicht überspringen.

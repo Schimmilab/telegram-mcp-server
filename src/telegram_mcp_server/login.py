@@ -20,7 +20,7 @@ async def _run() -> None:
     api_hash = os.environ.get("TELEGRAM_API_HASH")
     phone = os.environ.get("TELEGRAM_PHONE")
     session = os.environ.get("TELEGRAM_SESSION") or str(
-        Path.home() / ".telegram-mcp" / "schimmi.session"
+        Path.home() / ".telegram-mcp" / "telegram.session"
     )
     if not (api_id and api_hash and phone):
         print(

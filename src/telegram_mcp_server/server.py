@@ -37,7 +37,7 @@ def _load_config() -> dict[str, Optional[str]]:
         "api_id": os.environ.get("TELEGRAM_API_ID"),
         "api_hash": os.environ.get("TELEGRAM_API_HASH"),
         "session": os.environ.get("TELEGRAM_SESSION")
-        or str(home / ".telegram-mcp" / "schimmi.session"),
+        or str(home / ".telegram-mcp" / "telegram.session"),
         "download_dir": os.environ.get("TELEGRAM_DOWNLOAD_DIR")
         or str(home / "Downloads" / "telegram-mcp"),
     }
