@@ -90,3 +90,8 @@ Tests laufen ohne Live-Account (Client wird gemockt).
 Erster echter Integrationstest = ein Medienabruf aus einer deiner Gruppen. Die globale `search_messages`
 (ohne `chat`) ist der einzige Pfad, der `_search_global`/`SearchGlobalRequest` real ausführt —
 im Smoke-Test nicht überspringen.
+
+## Maintainer
+
+Schimmi — https://schimmilab.de
+Issues und Pull Requests willkommen.
