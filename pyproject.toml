@@ -9,12 +9,12 @@ authors = [
     {name = "Juergen Schilling", email = "juergen_schilling@web.de"}
 ]
 dependencies = [
-    "mcp>=1.0.0",
+    "fastmcp>=3,<4",
     "telethon>=1.36.0",
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8.0"]
+test = ["pytest>=8.0,<9", "pytest-asyncio>=0.24,<2"]
 
 [project.scripts]
 telegram-mcp-server = "telegram_mcp_server.server:main"
@@ -26,3 +26,6 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = ["telegram_mcp_server"]
 package-dir = {"" = "src"}
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

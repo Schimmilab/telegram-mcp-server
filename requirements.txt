@@ -1,2 +1,2 @@
-mcp>=1.0.0
+fastmcp>=3,<4
 telethon>=1.36.0

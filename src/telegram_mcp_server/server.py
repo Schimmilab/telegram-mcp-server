@@ -15,7 +15,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Optional
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from telethon import TelegramClient
 from telethon.tl.functions.messages import SearchGlobalRequest
 from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
