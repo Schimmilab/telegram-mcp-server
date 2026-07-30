@@ -9,18 +9,18 @@ authors = [
     {name = "Juergen Schilling", email = "juergen_schilling@web.de"}
 ]
 dependencies = [
-    "fastmcp>=3,<4",
-    "telethon>=1.36.0",
+    "fastmcp==3.4.5",
+    "telethon==1.44.0",
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=9.1,<10", "pytest-asyncio>=0.24,<2"]
+test = ["pytest==9.1.1", "pytest-asyncio==1.4.0"]
 
 [project.scripts]
 telegram-mcp-server = "telegram_mcp_server.server:main"
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools==83.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

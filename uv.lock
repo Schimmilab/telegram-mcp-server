@@ -1549,10 +1549,10 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastmcp", specifier = ">=3,<4" },
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=9.1,<10" },
-    { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.24,<2" },
-    { name = "telethon", specifier = ">=1.36.0" },
+    { name = "fastmcp", specifier = "==3.4.5" },
+    { name = "pytest", marker = "extra == 'test'", specifier = "==9.1.1" },
+    { name = "pytest-asyncio", marker = "extra == 'test'", specifier = "==1.4.0" },
+    { name = "telethon", specifier = "==1.44.0" },
 ]
 provides-extras = ["test"]
 
