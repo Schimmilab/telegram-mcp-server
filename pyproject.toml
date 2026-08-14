@@ -9,7 +9,7 @@ authors = [
     {name = "Juergen Schilling", email = "juergen_schilling@web.de"}
 ]
 dependencies = [
-    "fastmcp==3.4.5",
+    "fastmcp==3.4.7",
     "telethon==1.44.0",
 ]
 
