@@ -1,2 +1,2 @@
-fastmcp==3.4.5
+fastmcp==4.0.3
 telethon==1.44.0
