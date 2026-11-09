@@ -7,10 +7,14 @@ All access uses a persistent, lazily-connected TelegramClient.
 
 from __future__ import annotations
 
+import atexit
 import logging
 import os
 import re
+import shutil
+import sqlite3
 import sys
+import tempfile
 import unicodedata
 from pathlib import Path
 from typing import Any, Optional
@@ -153,12 +157,59 @@ def _dialog_type(dialog: Any) -> str:
 _client: Optional["TelegramClient"] = None
 
 
+def _private_session_copy(source: Path) -> Path:
+    """Copy the session into a process-private file and return its path.
+
+    WHY THIS EXISTS (measured 2026-09-14): every MCP client spawns its own
+    server process, and all of them pointed at the same session file. Telethon
+    stores mutable state there -- ``update_state`` above all -- and
+    ``SQLiteSession.set_update_state`` writes with ``insert or replace``, i.e.
+    a blind overwrite with no comparison. Two processes therefore clobber each
+    other silently: in a measurement on a copy of the real session, a second
+    writer discarded 4997 update positions and no error was raised. The file
+    also uses ``journal_mode=delete`` (no WAL), so a writer locks the whole
+    database and a competing write fails with "database is locked" after the
+    5 s default timeout.
+
+    Working from a private copy removes the shared writer entirely. Only the
+    auth key is actually needed to read and send; ``update_state`` and the
+    entity cache are caches, so the cost is a cache that no longer grows
+    across processes -- cheaper than silent corruption.
+
+    Uses SQLite's backup API rather than a file copy on purpose: another
+    process may be mid-write, and a plain copy can capture a torn page.
+
+    Note that ``login.py`` keeps writing the real file; only the server reads
+    from a copy and never writes back.
+    """
+    tmpdir = tempfile.mkdtemp(prefix="telegram-mcp-session-")
+    atexit.register(shutil.rmtree, tmpdir, ignore_errors=True)
+    target = Path(tmpdir) / source.name
+    src = sqlite3.connect(f"file:{source}?mode=ro", uri=True)
+    try:
+        dst = sqlite3.connect(str(target))
+        try:
+            src.backup(dst)
+        finally:
+            dst.close()
+    finally:
+        src.close()
+    os.chmod(target, 0o600)
+    return target
+
+
 async def _get_client() -> "TelegramClient":
     """Return a connected, authorized TelegramClient (lazy, cached).
 
     Assumes the serialized single-event-loop model of a stdio MCP server:
     tool calls are handled one at a time, so the create-and-cache section is
     intentionally unlocked. Authorization is only re-checked on (re)connect.
+
+    That reasoning covers concurrency WITHIN one process only. Across
+    processes it does not apply: every MCP client starts its own server
+    process with its own ``_client``, and they all resolve to the same
+    configured session file. That second scope is handled by
+    ``_private_session_copy`` -- see its docstring for the measurement.
     """
     global _client
     if _client is not None and _client.is_connected():
@@ -174,6 +225,9 @@ async def _get_client() -> "TelegramClient":
         raise TelegramMCPError(f"TELEGRAM_API_ID must be numeric, got {cfg['api_id']!r}")
     session_path = Path(cfg["session"])
     session_path.parent.mkdir(parents=True, exist_ok=True)
+    if session_path.exists():
+        # Never let two server processes write the same session file.
+        session_path = _private_session_copy(session_path)
     client = TelegramClient(
         str(session_path),
         api_id_int,

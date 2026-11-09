@@ -66,6 +66,35 @@ kommt ein Fehler mit den Treffern statt einer Rate-Auflösung.
 Treffer aus der globalen Suche sind damit direkt in weiteren Tool-Aufrufen
 (z.B. `download_media`) verwendbar.
 
+## Mehrere gleichzeitige Sessions
+
+Jeder MCP-Client startet einen **eigenen Serverprozess**. Alle zeigen auf
+dieselbe Session-Datei, und Telethon legt darin veraenderlichen Zustand ab —
+vor allem `update_state`. `SQLiteSession.set_update_state` schreibt mit
+`insert or replace`, also ein **blindes Ueberschreiben ohne Vergleich**.
+
+Gemessen am 14.09.2026 an einer Kopie einer echten Session: Zwei Schreiber
+verwerfen gegenseitig ihren Stand — **4997 Update-Positionen still verloren,
+kein Fehler**. Dazu nutzt die Datei `journal_mode=delete` (kein WAL), ein
+Schreiber sperrt also die ganze Datei; ein konkurrierender Schreibvorgang
+scheitert nach dem 5-s-Standardtimeout mit `database is locked`.
+
+**Deshalb liest der Server aus einer prozesseigenen Kopie und schreibt nie
+zurueck** (`_private_session_copy`). Kopiert wird ueber SQLites Backup-API,
+nicht per Dateikopie: Ein anderer Prozess kann mitten im Schreiben sein, und
+eine einfache Kopie kann eine halb geschriebene Seite erwischen.
+
+Was das kostet: Der Entitaeten-Cache waechst nicht mehr ueber Prozesse hinweg,
+es gibt also etwas mehr Aufloese-Aufrufe. Fuer Lesen und Senden wird nur der
+`auth_key` gebraucht; `update_state` und der Cache sind Beschleuniger.
+
+`login.py` ist davon nicht betroffen und schreibt weiterhin die echte Datei.
+
+⚠️ Der naheliegende Fix `receive_updates=False` traegt **nicht**: Er schaltet
+nur den Zufluss ab. Der `set_update_state`-Aufruf in Telethons
+`telegrambaseclient.py` laeuft beim **Disconnect** und ist nicht von
+`_no_updates` geschuetzt — geschrieben wird trotzdem.
+
 ## Entwicklung / Tests
 
 ```bash
