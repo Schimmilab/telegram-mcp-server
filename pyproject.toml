@@ -10,7 +10,7 @@ authors = [
 ]
 dependencies = [
     "fastmcp==3.4.5",
-    "telethon==1.44.0",
+    "telethon==1.45.0",
 ]
 
 [project.optional-dependencies]
